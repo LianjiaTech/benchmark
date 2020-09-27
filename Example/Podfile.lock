@@ -1,0 +1,16 @@
+PODS:
+  - LJBenchmark (0.1.0)
+
+DEPENDENCIES:
+  - LJBenchmark (from `../`)
+
+EXTERNAL SOURCES:
+  LJBenchmark:
+    :path: "../"
+
+SPEC CHECKSUMS:
+  LJBenchmark: 5b95213a055f0f0f87d558f91f8d2d042caaa3c2
+
+PODFILE CHECKSUM: bfc9827ee5e1a5a07c1271d5fcbea54b5a62ae78
+
+COCOAPODS: 1.8.3

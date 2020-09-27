@@ -1,0 +1,409 @@
+#!/bin/bash
+
+#Copyright(c) 2019 Lianjia, Inc. All Rights Reserved
+#Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+#associated documentation files (the "Software"), to deal in the Software without restriction,
+#including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
+#and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do
+#so, subject to the following conditions:
+#
+#The above copyright notice and this permission notice shall be included in all copies or substantial
+#portions of the Software.
+#
+#THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+#THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+#OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+#ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+#OTHER DEALINGS IN THE SOFTWARE.
+
+target_project=""
+target_project_line=0
+spec_path_c=""
+source_files_path=""
+scanner_dir_path=""
+
+# 程序入口
+function main() {
+    if [ ! $1 ]
+    then
+    help $@
+        elif [ $1 = "--help" ]
+    then
+    help $@
+        elif [ $1 = "--desc" ]
+    then
+        description $@
+    else
+        # 这里是你的功能处理逻辑
+        dispose $@
+    fi
+}
+
+# 帮助
+function help() {
+    echo $outputPrefix"sh benchmark pod [option[podspecs_name]] [--podfile/--source]"
+    echo $outputPrefix"--podfile 会将 pod LJBenchmark ... 写入工作目录的Podfile中..."
+    echo $outputPrefix"--source  会找出 podspecs_name 下的代码路径 通过 echo 标准输出"
+    echo $outputPrefix"欢迎您的使用"
+}
+
+# 描述
+function description() {
+    echo $outputPrefix"组件名称：\"pod\""
+    echo $outputPrefix"功能简介：这个组件是用来执行 将LJBenchmark写入Podfile 和搜索podspecs_name 对应的 source_files 路径相关的任务"
+    echo $outputPrefix"版本号：0.0.1"
+    echo $outputPrefix"作者：链家"
+    echo "\n"
+}
+
+# 处理逻辑
+function dispose() {
+    last_parma=${!#}
+    if [ $last_parma = "--podfile" ]
+    then
+        import_benchmark_to_project $1
+    elif [ $last_parma = "--source" ]
+    then
+        find_podfile_wanna_hook_podspec $1
+        if [[ $spec_path_c ]]
+        then
+            find_project_scanner_dir_path $1 $spec_path_c
+            if [[ $scanner_dir_path ]]
+            then
+                echo $scanner_dir_path
+            else
+                echo $__return_none__
+            fi
+        else
+            echo $__return_none__
+        fi
+    fi
+}
+
+
+# 找到最大相似的目标项目关联
+function find_max_similarity_target_project() {
+    xcworkspace_name=""
+    for file in `ls $root_path`
+    do
+        if [[ $file =~ ".xcworkspace" ]]
+        then
+            xcworkspace_name=$file
+            xcworkspace_name=${xcworkspace_name%%.xc*}
+        break
+        fi
+    done
+
+    temp_num=0
+    target_array=()
+    while read line
+    do
+        temp_num=$(expr $temp_num + 1)
+        if [[ $line =~ ^target.* ]]
+        then
+            #  target 'LJShellLaunch' do
+            target=$line
+            target=${target#*target}
+            asdo="do"
+            target=${target%"$asdo"*}
+            target=`echo $target`
+            target=`echo $target | sed 's/\"//g'`
+            target=`echo $target | sed $'s/\'//g'`
+            if echo "$target" | grep -q '^[a-zA-Z0-9]\+$'
+            then
+                if [[ $target = "$xcworkspace_name" ]]
+                then
+                    target_project=$xcworkspace_name
+                    target_project_line=$temp_num
+                    break
+                else
+                    count=${#target_array[@]}
+                    target_array[$count]=$target
+                fi
+            fi
+        fi
+    done <$podfile_file_path
+
+    # 可能被定义为变量
+    temp_num=0
+    if [[ -z $target_project ]]
+    then
+        is_find="0"
+        while read line
+        do
+            temp_num=$(expr $temp_num + 1)
+            for element in ${target_array[@]}
+            do
+                if [[ $line =~ ^$element.* ]]&&[[ $line =~ "=" ]]&&[[ $line =~ $xcworkspace_name ]]
+                then
+                    target_project=$element
+                    target_project_line=$temp_num
+                    is_find="1"
+                    break
+                fi
+            done
+
+            if [ $is_find = "1" ]
+            then
+                break
+            fi
+        done <$podfile_file_path
+    fi
+    # 可继续在target_array中继续寻找相似度最高的匹配。。。
+}
+
+# 将benchmark导入podfile工程
+function import_benchmark_to_project() {
+    if [[ -z $target_project ]]
+    then
+        find_max_similarity_target_project
+    fi
+
+    is_pod_benchmark=0
+    pod_line_num=0
+
+    if [[ -z $target_project ]]  # 找不到目标项目就找最近的pod
+    then
+        temp_num=0
+        while read line
+        do
+            temp_num=$(expr $temp_num + 1)
+            if [[ $line =~ ^pod.* ]]
+            then
+                if [[ $pod_line_num -eq 0 ]]
+                then
+                    pod_line_num=$temp_num
+                fi
+
+                if [[ $line =~ "LJBenchmark" ]]
+                then
+                    is_pod_benchmark=1
+                fi
+            fi
+        done <$podfile_file_path
+
+    else
+
+        temp_num=0
+        while read line
+        do
+            temp_num=$(expr $temp_num + 1)
+
+            if [[ $line =~ ^pod.* ]]
+            then
+
+                if [[ $pod_line_num -eq 0 ]]&&[[ $temp_num -gt $target_project_line ]]&&[[ $target_project_line -ne 0 ]]
+                then
+                    pod_line_num=$temp_num
+                fi
+
+                if [[ $line =~ "LJBenchmark" ]]
+                then
+                    is_pod_benchmark=1
+                fi
+            fi
+        done <$podfile_file_path
+
+    fi
+
+    # 如果已经存在了就不导入了
+    if [[ $is_pod_benchmark -eq 0 ]]
+    then
+        sed -i '' "$pod_line_num a\ 
+        pod \'LJBenchmark\', :path => \'../LJBenchmark/LJBenchmark.podspec\'
+        " $podfile_file_path
+    fi
+}
+
+# 找到pofile 并在指定的位置下更改pod内容
+function find_podfile_wanna_hook_podspec() {
+    podspecs_name=$1
+    spec_path_c=""
+    pod_content="";
+    while read line
+    do
+        if [[ $line =~ ^pod.* ]]
+        then
+            temp_name=$line
+            temp_name=${temp_name#*pod}
+            if [[ $temp_name =~ "," ]]
+            then
+                temp_name=${temp_name%%,*}
+                temp_name=`echo $temp_name`
+                temp_name=`echo $temp_name | sed 's/\"//g'`
+                temp_name=`echo $temp_name | sed $'s/\'//g'`
+            fi
+
+            if [[ $temp_name = $podspecs_name ]]
+            then
+                pod_content=$line
+                break
+            fi
+        fi
+    done <$podfile_file_path
+
+    if [[ $pod_content ]]
+    then
+        spec_path_c=$pod_content
+    fi
+}
+
+# 通过spec_path_c找到扫描的文件夹路径
+function find_project_scanner_dir_path() {
+    podspecs_name=$1
+    param=$@
+    scanner_dir_path=""
+    if [[ $param =~ "path" ]]&&[[ $param =~ "=>" ]]
+    then  # 需要在本地找到代码目录
+        temp_path=$param
+        temp_path=${temp_path#*=>}
+        if [[ $temp_path == *","* ]]
+        then
+            temp_path=${temp_path%%,*}
+        fi
+        temp_path=`echo $temp_path`
+        #'../x/y.podspec'
+        #'../'
+        length=${#temp_path}
+        cut_len=$(expr $length - 2)
+        temp_path=${temp_path: 1 :$cut_len}
+        temp_path=${temp_path%/*}
+        temp_path=$root_path"/"$temp_path
+        podspec_file=$temp_path"/"${podspecs_name}.podspec
+        find_source_files_from_podspecs $podspec_file $temp_path
+        if [[ -z $source_files_path ]]
+        then
+            scanner_dir_path=""
+        else
+            scanner_dir_path=$source_files_path
+        fi
+    else  # 直接在Pods目录下搜寻
+        temp_path=$root_path"/"Pods
+        for file in `ls $temp_path`  # 注意此处这是两个反引号，表示运行系统命令
+        do
+            if [ $file = $podspecs_name ]
+            then
+                scanner_dir_path=$temp_path"/"$file
+                break
+            fi
+        done
+    fi
+}
+
+# 找到source_files所在的相对路径
+function find_source_files_from_podspecs() {
+    file_path=$1
+    dir_path=$2
+    source_files_path=""
+    temp_source_files_array=()
+    while read line
+    do
+        if [[ $line =~ ^s.source_files.* ]]&&[[ $line =~ "=" ]]
+        then
+            source=$line
+            source=${source#*=}
+            source=`echo $source`
+            length=${#source}
+            cut_len=$(expr $length - 1)
+            source=${source: 1 :$cut_len}
+            asterisk="*"
+            while [[ $source =~ "$asterisk" ]]
+            do
+                source=${source%"$asterisk"*}
+            done
+            count=${#temp_source_files_array[@]}
+            temp_source_files_array[$count]=$source
+            temp_path=$dir_path"/"$source
+            if [ -d $temp_path ]
+            then
+                source_files_path=$temp_path
+                break
+            fi
+        fi
+    done <$file_path
+    #    #{s.name}/Classes/
+    #    #{s.name}/Archive/#{configuration}/
+    #    #{s.name}/Framework/#{configuration}/
+    # 如果还没找到，可能里面有定义变量
+    if [[ -z $source_files_path ]]
+    then
+        for element in ${temp_source_files_array[@]}
+        do
+            try_path=$dir_path"/"`try_replace_var_to_find_source_files_path $element $file_path`
+            if [[ $try_path ]]&&[ -d $try_path ]
+            then
+                source_files_path=$try_path
+            break
+            fi
+        done
+    fi
+
+}
+
+function try_replace_var_to_find_source_files_path() {
+    var_source_file=$1
+    file_path=$2
+    #要将$a分割开，先存储旧的分隔符
+    OLD_IFS="$IFS"
+    #设置分隔符
+    IFS="/"
+    #如下会自动分隔
+    tempArr=($var_source_file)
+    #恢复原来的分隔符
+    IFS="$OLD_IFS"
+    #遍历数组
+    var_start="#{"
+
+    temp_num=0
+    for temp in ${tempArr[@]}
+    do
+        temp_num=$(expr $temp_num + 1)
+        if [[ $temp =~ ^"$var_start".* ]]
+        then
+            #{s.name}
+            real_var=`find_source_files_subpath_var $temp $file_path`
+            tempArr[$(expr $temp_num - 1)]=$real_var
+        fi
+    done
+    # #{s.name}/Classes/
+    last_path=""
+    for temp in ${tempArr[@]}
+    do
+        last_path=$last_path""$temp"/"
+    done
+
+    echo $last_path
+}
+
+# 比如s.name找到对应的值
+function find_source_files_subpath_var() {
+    file_path=$2
+    #{s.name}
+    var_name=$1
+    length=${#var_name}
+    cut_len=$(expr $length - 3)
+    var_name=${var_name: 2 :$cut_len}
+    var_name=`echo $var_name`
+    # s.name         = "LJNHLinkComponent"
+    while read line
+    do
+        if [[ $line =~ ^"$var_name".* ]]
+        then
+            temp=$line
+            temp=${temp#*=}
+            temp=`echo $temp`
+            # "LJNHLinkComponent"
+            length=${#temp}
+            cut_len=$(expr $length - 2)
+            temp=${temp: 1 :$cut_len}
+            var_name=$temp
+        fi
+    done <$file_path
+    echo $var_name
+}
+
+
+# 执行脚本
+main $@

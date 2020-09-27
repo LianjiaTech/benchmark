@@ -1,0 +1,6 @@
+framework module LJBenchmark {
+  umbrella header "LJBenchmark-umbrella.h"
+
+  export *
+  module * { export * }
+}

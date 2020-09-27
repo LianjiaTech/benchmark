@@ -1,0 +1,351 @@
+#!/bin/bash
+
+#Copyright(c) 2019 Lianjia, Inc. All Rights Reserved
+#Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+#associated documentation files (the "Software"), to deal in the Software without restriction,
+#including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
+#and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do
+#so, subject to the following conditions:
+#
+#The above copyright notice and this permission notice shall be included in all copies or substantial
+#portions of the Software.
+#
+#THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+#THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+#OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+#ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+#OTHER DEALINGS IN THE SOFTWARE.
+
+# 快捷键生成的代码文件缓存
+snip_cache_file_array=()
+
+# 程序入口
+function main() {
+    if [ ! $1 ]
+    then
+        help $@
+    elif [ $1 = "--help" ]
+    then
+        help $@
+    elif [ $1 = "--desc" ]
+    then
+        description $@
+    else
+        # 这里是你的功能处理逻辑
+        dispose $@
+fi
+}
+
+# 帮助
+function help() {
+    echo $outputPrefix"sh benchmark clear [file/dir/podspecs_name] [--snip/--method/--all]"
+    echo $outputPrefix"卸载我们的痕迹使用，分为方法耗时关联、Podfile、事件流代码"
+    echo $outputPrefix"clear操作中 \"sh benchmark clear [file/dir/podspecs_name] --snip\" 为清理 [source] 路径下的快捷键生成的事件流代码痕迹"
+    echo $outputPrefix"clear操作中 \"sh benchmark clear [file/dir/podspecs_name] --method\" 为清理 [source] 路径下方法耗时关联"
+    echo $outputPrefix"clear操作中 \"sh benchmark clear [file/dir/podspecs_name] --all\" 所有痕迹"
+    echo $outputPrefix"[source] 支持以空格作为分隔符进行多个目标业务路径同时进行取消关联"
+    echo $outputPrefix"取消关联完毕，完后并为您自动打开工作项目"
+    echo $outputPrefix"欢迎您的使用"
+}
+
+# 描述
+function description() {
+    echo $outputPrefix"组件名称：\"clear\""
+    echo $outputPrefix"功能简介：这个组件是用来清理LJBenchmark在您的业务痕迹中使用的"
+    echo $outputPrefix"版本号：0.0.1"
+    echo $outputPrefix"作者：链家"
+    echo "\n"
+}
+
+# 处理逻辑
+function dispose() {
+    last_parma=${!#}
+    if [ $1 = "--snip" ]||[ $1 = "--method" ]||[ $1 = "--all" ]
+    then
+        echo $outputPrefix"您应该输入一个 [source] 路径"
+        help $@
+    else
+        if [ $last_parma = "--snip" ]
+        then
+            clear_snip_code_related $@
+        elif [ $last_parma = "--method" ]
+        then
+            clear_method_related $@
+        elif [ $last_parma = "--all" ]
+        then
+            clear_all_related $@
+        else
+            echo $outputPrefix"将为您按照""sh benchmark clear $@ --method 执行"
+            echo $outputPrefix"命令行输入""sh benchmark clear --help 查看更多清理功能快捷键"
+            clear_method_related $@
+        fi
+        # 重新装载项目
+        execute_pod_command $1
+        # 打开项目
+        find_and_open_workspace_path
+    fi
+}
+
+# 清理输入源下的方法耗时关联
+function clear_method_related() {
+    start=$(date +%s.%N)
+    echo $outputPrefix"开始清理方法耗时关联"
+    idx=0
+    for i in "$@";
+    do
+        idx=$(expr $idx + 1)
+        if [ $idx -gt 0 ]
+        then
+            if [ $i != "--snip" ]&&[ $i != "--method" ]&&[ $i != "--all" ]
+            then
+                clear_method_in_input_source $i
+            fi
+        fi
+    done
+    end=$(date +%s.%N)
+    runtime=$(get_execution_time $start $end)
+    echo $outputPrefix"清理方法耗时关联结束，累计耗时：$runtime"
+}
+
+# 清理输入源下的方法耗时关联
+function clear_snip_code_related() {
+    echo $outputPrefix"开始清理事件流代码痕迹"
+    # 执行扫描类函数-脚本执行初始时间
+    start=$(date +%s.%N)
+    #####################################
+    # 2、尝试处理输入参数下所有可能存在的类
+    echo $outputPrefix`date +'%Y-%m-%d %H:%M:%S'`" 开始执行卸载业务关联操作，相对耗时^_^，耐心等待 😆 ~"
+    # 执行扫描类函数单个业务路径耗时统计
+    idx=0
+    for i in "$@";
+    do
+        idx=$(expr $idx + 1)
+        if [ $idx -gt 0 ]
+        then
+            if [ $i != "--snip" ]&&[ $i != "--method" ]&&[ $i != "--all" ]
+            then
+                clear_snip_code_in_input_source $i
+            fi
+        fi
+    done
+
+    #####################################
+    # 执行扫描类函数-脚本总耗时统计
+    end=$(date +%s.%N)
+    runtime=$(get_execution_time $start $end)
+    echo $outputPrefix`date +'%Y-%m-%d %H:%M:%S'`" 卸载业务关联流程执行完毕，关联总计耗时: $runtime"
+}
+
+# 清理输入源下的方法耗时关联
+function clear_all_related() {
+    find_delete_benchmark_in_your_app_podfile
+    clear_method_related $@
+    clear_snip_code_related $@
+}
+
+# 清理输入源的方法耗时关联
+function clear_method_in_input_source() {
+    file_name=$1
+    if [ -d $1 ]&&[[ $1 =~ "/" ]]
+    then
+        temp=$1
+        temp=${temp##*/}
+        temp=${temp%%.*}
+        file_name="LJBM""_auto_dir_""$temp"
+    elif [ -f $1 ]
+    then
+        temp=$1
+        temp=${temp##*/}
+        temp=${temp%%.*}
+        file_name="LJBM""_auto_file_""$temp"
+    else
+        file_name="LJBM""_auto_pod_""$1"
+    fi
+
+    file_path=$benchmark_classes_path"/Temp/""$file_name"".m"
+    if [ -f $file_path ]
+    then
+        rm -f $file_path
+    fi
+    echo $outputPrefix"$1" "方法耗时关联解除"
+}
+
+# 清除事件流快捷键生成的耗时代码并删除
+function clear_snip_code_in_input_source() {
+    sub_start=$(date +%s.%N)
+    snip_cache_file_array=()
+    if [ -d $1 ]&&[[ $1 =~ "/" ]]
+    then
+        echo $outputPrefix"参数 \"$1\" 将按照 \"文件夹\" 类型输入进行卸载处理";
+        #####################################
+        # 直接扫描文件夹，得到类
+        clear_benchmark_snippets_code_in_xc_project_dir $1
+    elif [ -f $1 ]
+    then
+        echo $outputPrefix"参数 $1 将按照 \"文件\" 类型输入进行卸载处理";
+        #####################################
+        # 直接扫描文件，得到类
+        find_benchmark_snippets_code_in_xc_project_file $1
+    else
+        echo $outputPrefix"传入的参数 $1 将按照 \"podspec_name\" 类型输入进行卸载处理";
+        # 找到pofile找到scanner_dir_path
+        scanner_dir_path=`sh "${benchmark_shell_path}/pod" $1 "--source"`
+        #####################################
+        # 执行扫描类函数
+        if [[ "$scanner_dir_path" = $__return_none__ ]]
+        then
+            echo $outputPrefix"当前 \"$1\" 参数代表的业务不属于您的即将监控的工程，😆 ~"
+        else
+            echo $outputPrefix"参数 \"${1}\" 指引下找到业务代码：\"$scanner_dir_path\""
+            # 执行扫描类函数
+            if [[ -d $scanner_dir_path ]]
+            then
+                clear_benchmark_snippets_code_in_xc_project_dir $scanner_dir_path  # $1传入的文件代码路径
+            fi
+        fi
+    fi
+
+    for element in ${snip_cache_file_array[@]}
+    do
+        clear_benchmark_snippets_code_in_xc_project_file $element
+    done
+
+    end=$(date +%s.%N)
+    runtime=$(get_execution_time $sub_start $end)
+    echo $outputPrefix"\"$1\" 清理事件流代码痕迹，耗时: "$runtime
+}
+
+# 找到pofile中的 benchmark 相关的内容，并删除
+function find_delete_benchmark_in_your_app_podfile() {
+    # podfile_file_path=$root_path"/"Podfile
+    temp_num=0
+    while read line
+    do
+        temp_num=$(expr $temp_num + 1)
+        if [[ $line =~ ^pod.* ]]&&[[ $line =~ "LJBenchmark" ]]
+        then
+            sed -i '' ${temp_num}d "$podfile_file_path"
+            temp_num=$(expr $temp_num - 1)
+        fi
+    done <$podfile_file_path
+    echo $outputPrefix"Podfile中相关依赖已清除"
+}
+
+# 清除文件夹路径下的所有事件流文件
+function clear_benchmark_snippets_code_in_xc_project_dir() {
+    for file in `ls $1` # 注意此处这是两个反引号，表示运行系统命令
+    do
+        if [ -d $1"/"$file ] # 注意此处之间一定要加上空格，否则会报错
+        then
+            if [[ $file =~ "." ]]||[[ $file =~ "Pods" ]]
+            then
+                continue
+            else
+                clear_benchmark_snippets_code_in_xc_project_dir $1"/"$file
+            fi
+        else
+            find_benchmark_snippets_code_in_xc_project_file $1"/"$file
+        fi
+    done
+}
+
+# 清除文件路径下的所有事件流文件
+function find_benchmark_snippets_code_in_xc_project_file(){
+    file_path=$@
+    suffix="${file_path##*.}"x
+    if [ $suffix = "h"x ]||[ $suffix = "m"x ]||[ $suffix = "mm"x ]
+    then
+        start_str="#if __has_include(\"LJBenchmark.h\")"
+        start_prefix="#if"
+        while read line
+        do
+            if [[ $line =~ ^"$start_prefix".* ]]
+            then
+                if [[ $line =~ ^"$start_str".* ]]
+                then
+                    count=${#snip_cache_file_array[@]}
+                    snip_cache_file_array[$count]=$file_path
+                fi
+            fi
+        done <$file_path
+    fi
+}
+
+# 清除文件路径下的所有事件流文件
+function clear_benchmark_snippets_code_in_xc_project_file(){
+    file_path=$@
+    suffix="${file_path##*.}"x
+    if [ $suffix = "h"x ]||[ $suffix = "m"x ]||[ $suffix = "mm"x ]
+    then
+        start_line_num=0
+        end_line_num=0
+        start_str="#if __has_include(\"LJBenchmark.h\")"
+        start_prefix="#if"
+        end_str="#endif"
+        temp_num=0
+        while read line
+        do
+            temp_num=$(expr $temp_num + 1)
+            if [[ $line =~ ^"$start_prefix".* ]]
+            then
+                if [[ $line =~ ^"$start_str".* ]]
+                then
+                    start_line_num=$temp_num
+                fi
+            fi
+
+            if [[ $start_line_num -ne 0 ]]
+            then
+                if [[ $line =~ ^"$end_str".* ]]
+                then
+                    end_line_num=$temp_num
+                    sed -i '' "${start_line_num},${end_line_num}d" "$file_path"
+                    temp_num=$(expr $temp_num - 1 + $start_line_num - $end_line_num)
+                    start_line_num=0
+                    end_line_num=0
+                fi
+            fi
+        done <$file_path
+    fi
+}
+
+# 执行pod 命令更新壳工程
+function execute_pod_command() {
+    echo $outputPrefix"LJBenchmark已经与对应业务取消关联，即将 install 项目，成功将自动帮您打开项目"
+    cd $root_path
+    pod cache clean 'LJBenchmark' --all
+    pod install
+    xcodebuild clean -quiet
+}
+
+# 找到工作路径
+function find_and_open_workspace_path() {
+    xcworkspace_path=""
+    for file in `ls $root_path`
+    do
+        if [[ $file =~ ".xcworkspace" ]]
+        then
+            xcworkspace_path=$file
+        break
+        fi
+    done
+    echo ${outputPrefix}"链家，祝您工作愉快！"
+    cd $root_path
+    open ./$xcworkspace_path
+}
+
+# 耗时过程计算
+function get_execution_time() {
+    start=$1
+    end=$2
+    start_s=$(echo $start | cut -d '.' -f 1)
+    end_s=$(echo $end | cut -d '.' -f 1)
+    time=$(( ( 10#$end_s - 10#$start_s ) ))
+    echo "$time s"
+}
+
+
+# 执行脚本
+main $@

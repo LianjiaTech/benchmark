@@ -1,0 +1,103 @@
+#!/bin/bash
+
+#Copyright(c) 2019 Lianjia, Inc. All Rights Reserved
+#Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+#associated documentation files (the "Software"), to deal in the Software without restriction,
+#including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
+#and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do
+#so, subject to the following conditions:
+#
+#The above copyright notice and this permission notice shall be included in all copies or substantial
+#portions of the Software.
+#
+#THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+#THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+#OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+#ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+#OTHER DEALINGS IN THE SOFTWARE.
+
+# 将脚本放在workspace中，即 Podfile 所在目录，命令行执行sh benchmark 将指引您使用。
+#
+
+# 初始化环境变量
+##########################################################################################
+export git_remote_repository="https://github.com/LianjiaTech/LJBenchmark.git"
+export snippets_xcode_path="/Users/"$USER"/Library/Developer/Xcode/UserData/CodeSnippets"
+export root_path=$(cd `dirname $0`; pwd)
+export podfile_file_path=$root_path"/"Podfile
+export benchmark_root_path=$root_path"/"".."
+export benchmark_classes_path=$benchmark_root_path"/""LJBenchmark/LJBenchmark/Classes"
+export benchmark_shell_path=$benchmark_root_path"/""LJBenchmark/LJBenchmark/Classes/Shell"
+export __return_none__="__return_none__"
+export outputPrefix="【LJBenchmark】："
+
+# 初始化全局变量
+##########################################################################################
+is_exsit_benchmark="0"
+
+# 克隆LJBenchmark项目
+##########################################################################################
+function clone_benchmark_project() {
+    cd $root_path
+    if [ -d $benchmark_shell_path ]
+    then
+        echo $outputPrefix"检测到插件存在，即将更新LJBenchmark插件"
+        cd ../LJBenchmark
+        git pull
+    else
+        echo $outputPrefix"未检测到插件存在，即将下载最新的LJBenchmark插件"
+        cd ..
+        git clone $git_remote_repository
+    fi
+    if [ -d $benchmark_shell_path ]&&[ -d $benchmark_classes_path ]
+    then
+        is_exsit_benchmark="1"
+    fi
+}
+
+# 接收传入shell的文件夹路径并脚本执行的命令
+##########################################################################################
+##########################################################################################
+# 克隆项目
+clone_benchmark_project
+# 加载LJBenchmark是否存在
+if [ $is_exsit_benchmark = "1" ]
+then
+    if [ ! $1 ]
+    then
+        sh "${benchmark_shell_path}/help" $2
+    else
+        if [ -d $benchmark_shell_path ]
+        then
+            file_path=$benchmark_shell_path"/"$1
+            if [ -f $file_path ]
+            then
+                arguments=""
+                idx=0
+                for i in "$@";
+                do
+                    idx=$(expr $idx + 1)
+                    if [ $idx -gt 1 ]
+                    then
+                        arguments=$arguments" "$i
+                    fi
+                done
+                sh "$file_path" $arguments
+            else
+                echo $outputPrefix"\"$benchmark_shell_path\" 路径下未搜索到 \"$1\" 该组件"
+            fi
+        else
+            echo "\"$benchmark_shell_path\" 路径不存在"
+        fi
+    fi
+else
+    echo $outputPrefix"LJBenchmark不存在，且无法下载，请保证网络的通畅和git权限相关设置"
+fi
+
+##########################################################################################
+
+
+
+

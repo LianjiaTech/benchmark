@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>IDECodeSnippetCompletionPrefix</key>
+	<string>LJBM_MAKE_SETUP</string>
+	<key>IDECodeSnippetCompletionScopes</key>
+	<array>
+		<string>All</string>
+	</array>
+	<key>IDECodeSnippetContents</key>
+	<string>#if __has_include("LJBenchmarkMacro.h")
+    LJBM_HOOK_CLASS(&lt;#__CLS__#&gt;);
+    // 黑名单
+    LJBM_ADD_SEL_TO_BLACKLIST(&lt;#__SEL__#&gt;);
+    // log 时间下限
+    LJBM_FILT_LOG_TIME_GREATER_THAN(&lt;#__ms__#&gt;);
+    // 不去hook某个类下的某个方法
+    LJBM_ADD_SEL_OF_CLS_TO_BLACKLIST(&lt;#__CLS__#&gt;, &lt;#__SEL__#&gt;);
+#endif</string>
+	<key>IDECodeSnippetIdentifier</key>
+	<string>6D60CF9B-3761-433D-9044-F4E51E28E0C1</string>
+	<key>IDECodeSnippetLanguage</key>
+	<string>Xcode.SourceCodeLanguage.Generic</string>
+	<key>IDECodeSnippetSummary</key>
+	<string>LJBM_MAKE_SETUP</string>
+	<key>IDECodeSnippetTitle</key>
+	<string>LJBM_MAKE_SETUP</string>
+	<key>IDECodeSnippetUserSnippet</key>
+	<true/>
+	<key>IDECodeSnippetVersion</key>
+	<integer>0</integer>
+</dict>
+</plist>

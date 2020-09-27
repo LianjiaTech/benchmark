@@ -1,0 +1,322 @@
+#!/bin/bash
+
+#Copyright(c) 2019 Lianjia, Inc. All Rights Reserved
+#Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+#associated documentation files (the "Software"), to deal in the Software without restriction,
+#including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
+#and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do
+#so, subject to the following conditions:
+#
+#The above copyright notice and this permission notice shall be included in all copies or substantial
+#portions of the Software.
+#
+#THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+#THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+#OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+#ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+#OTHER DEALINGS IN THE SOFTWARE.
+
+hook_prefix="[allClsSet addObject:@\""
+hook_suffix="\"];"
+cls_list=""
+colon=":"
+
+# 程序入口
+function main() {
+    if [ ! $1 ]
+    then
+        help $@
+    elif [ $1 = "--help" ]
+    then
+        help $@
+    elif [ $1 = "--desc" ]
+    then
+        description $@
+    else
+        # 这里是你的功能处理逻辑
+        dispose $@
+    fi
+}
+
+# 帮助
+function help() {
+    echo $outputPrefix"sh benchmark connect [file/dir/podspecs_name]"" ，装载我们的插件使用"
+    echo $outputPrefix"sh benchmark connect 文件路径 文件夹路径 podspecs_name ， 支持以空格作为分隔符进行多个目标业务路径同时进行关联"
+    echo $outputPrefix"podspecs_name是 AFNetworking 这样的Pod库名，推荐使用"
+    echo $outputPrefix"关联完毕，会执行 pod install 帮您安装好依赖，依赖关联完毕并为您自动打开工作项目"
+    echo $outputPrefix"关联完毕，如果不想重新 pod install 项目，使用 sh benchmark connect [file/dir/podspecs_name] --noupdate "
+    echo $outputPrefix"欢迎您的使用"
+}
+
+# 描述
+function description() {
+    echo $outputPrefix"组件名称：\"connect\""
+    echo $outputPrefix"功能简介：这个组件是用来链接LJBenchmark和您的业务使用的"
+    echo $outputPrefix"版本号：0.0.1"
+    echo $outputPrefix"作者：链家"
+    echo "\n"
+}
+
+# 处理逻辑
+function dispose() {
+    # 删除temp的缓存，防止别的业务线干扰
+    static_dir=$benchmark_classes_path"/Temp"
+    if [ ! -d $static_dir ];
+    then
+        mkdir $static_dir
+    else
+        rm -rf $static_dir
+        mkdir $static_dir
+    fi
+
+    last_parma=${!#}
+    # 1、装载或者更新快捷键
+    install_code_snippets_to_xc
+    # 2、找到pofile 并添加修改pod
+    sh "${benchmark_shell_path}/pod" "--podfile"
+    #####################################
+    # 执行扫描类函数-脚本执行初始时间
+    start=$(date +%s.%N)
+    echo $outputPrefix`date +'%Y-%m-%d %H:%M:%S'`" 开始执行业务关联操作"
+    #####################################
+    # 2、尝试处理输入参数下所有可能存在的类
+    # 执行扫描类函数单个业务路径耗时统计
+    idx=0
+    for i in "$@";
+    do
+        idx=$(expr $idx + 1)
+        if [ $idx -gt 0 ]
+        then
+            if [ $i != "--noupdate" ]
+            then
+                try_relate_benchmark_and_inputparma $i
+            fi
+        fi
+    done
+    #####################################
+    # 3、执行扫描类函数-脚本总耗时统计
+    end=$(date +%s.%N)
+    runtime=$(get_execution_time $start $end)
+    echo $outputPrefix`date +'%Y-%m-%d %H:%M:%S'`" 业务关联流程执行完毕，关联总计耗时: $runtime"
+    #####################################
+    # 4、执行pod相关操作
+    if [ $last_parma = "--noupdate" ]
+    then
+        echo $outputPrefix"即将为您打开工程项目~"
+    else
+        execute_pod_command $1
+        echo $outputPrefix"关联完毕，如果不想重新 pod install 项目，使用 sh benchmark connect [file/dir/podspecs_name] --noupdate "
+    fi
+    #####################################
+
+    # 5、打开项目
+    find_and_open_workspace_path
+
+}
+
+# 装载快捷键到xcode中
+function install_code_snippets_to_xc() {
+    snippets_lc_path=$root_path"/../LJBenchmark/LJBenchmark/CodeSnippets"
+    copy_aDir_files_to_another_dir $snippets_lc_path $snippets_xcode_path
+    echo $outputPrefix"相关快捷键已关联到Xcode，编写项目时输入 \"LJBM_MAKE_\" 即可获得提示，首次安装或新的更新需要重启Xcode才能生效。"
+    echo $outputPrefix"移除使用 \"sh benchmark clear --snip\" or \"sh benchmark clear\""
+}
+
+# 复制一个文件夹内文件去另外一个文件夹
+function copy_aDir_files_to_another_dir() {
+    fm_dir=$1
+    to_dir=$2
+    if [ -d $fm_dir ]&&[ -d $to_dir ]
+    then
+        for  file in `ls $fm_dir`
+        do
+            if [ -f $to_dir"/"$file ]
+            then
+                rm -f $to_dir"/"$file
+            fi
+            cp $fm_dir"/"$file $to_dir"/"$file
+        done
+    fi
+}
+
+# 尝试扫描出输入参数路径下的所有类
+function try_relate_benchmark_and_inputparma() {
+    sub_start=$(date +%s.%N)
+    cls_list=""
+    suffix_name=`find_parameter_input_suffix_name $1`
+    if [ -d $1 ]&&[[ $1 =~ "/" ]]
+    then
+        echo $outputPrefix"参数 \"$1\" 将按照 \"文件夹\" 类型输入进行处理";
+        # 直接扫描文件夹，得到类
+        scanner_cls_in_dir $1
+        # 将扫描的结果写入benchmark_shell_path 文件夹中
+        if [[ $cls_list ]]
+        then
+            write_scanner_cls_to_benchmark_pod $suffix_name
+        else
+            echo $outputPrefix"参数 \"$1\" 文件夹中未关联到类";
+        fi
+    elif [ -f $1 ]
+    then
+        echo $outputPrefix"参数 $1 将按照 \"文件\" 类型输入进行处理";
+        # 直接扫描文件，得到类
+        scanner_cls_in_file $1
+        # 将扫描的结果写入benchmark_shell_path 文件夹中
+        if [[ $cls_list ]]
+        then
+            write_scanner_cls_to_benchmark_pod $suffix_name
+        else
+            echo $outputPrefix"参数 \"$1\" 文件中未关联到类";
+        fi
+    else
+        echo $outputPrefix"传入的参数 $1 将按照 \"podspec_name\" 类型输入进行处理";
+        # 找到pofile找到scanner_dir_path
+        scanner_dir_path=`sh "${benchmark_shell_path}/pod" $1 "--source"`
+        #####################################
+        # 执行扫描类函数
+        if [[ "$scanner_dir_path" = $__return_none__ ]]
+        then
+            echo $outputPrefix"当前 \"$1\" 参数代表的业务不属于您的即将监控的工程，😆 ~"
+        else
+            echo $outputPrefix"参数 \"${1}\" 指引下找到业务代码：\"$scanner_dir_path\""
+            scanner_cls_in_dir $scanner_dir_path  # $1传入的文件代码路径
+            # 将扫描的结果写入benchmark_shell_path 文件夹中
+            if [[ $cls_list ]]
+            then
+                write_scanner_cls_to_benchmark_pod $suffix_name $1
+            else
+                echo $outputPrefix"参数 \"$1\" Pod中未关联到类";
+            fi
+        fi
+    fi
+
+    end=$(date +%s.%N)
+    runtime=$(get_execution_time $sub_start $end)
+    echo $outputPrefix"\"$1\" 流程，耗时: "$runtime
+}
+
+# 找到参数输入的尾缀名称
+function find_parameter_input_suffix_name() {
+    if [ -d $1 ]&&[[ $1 =~ "/" ]]
+    then
+        temp=$1
+        temp=${temp##*/}
+        temp=${temp%%.*}
+        echo "LJBM""_auto_dir_""$temp"
+    elif [ -f $1 ]
+    then
+        temp=$1
+        temp=${temp##*/}
+        temp=${temp%%.*}
+        echo "LJBM""_auto_file_""$temp"
+    else
+        echo "LJBM""_auto_pod_""$1"
+    fi
+}
+
+# 遍历文件夹找到相关的类
+function scanner_cls_in_dir() {
+    for file in `ls $1` # 注意此处这是两个反引号，表示运行系统命令
+    do
+        if [ -d $1"/"$file ] # 注意此处之间一定要加上空格，否则会报错
+        then
+            if [[ $file =~ "." ]]||[[ $file =~ "Pods" ]]
+            then
+                continue
+            else
+                scanner_cls_in_dir $1"/"$file
+            fi
+        else
+            scanner_cls_in_file $1"/"$file
+        fi
+    done
+}
+
+# 遍历文件的行找到类
+function scanner_cls_in_file () {
+    file_path=$@
+    suffix="${file_path##*.}"x
+    if [ $suffix = "h"x ]||[ $suffix = "m"x ]||[ $suffix = "mm"x ]
+    then
+        while read line
+        do
+            if [[ $line =~ ^@interface.* ]]
+            then
+                cls=$line
+                cls=${cls#*@interface}
+                if [[ $cls == *$colon* ]]
+                then
+                    cls=${cls%%:*}
+                    cls=`echo $cls`
+                    cls_list=$cls_list"\t"$hook_prefix""$cls""$hook_suffix"\n"
+                fi
+            fi
+        done <$file_path
+    fi
+}
+
+
+
+# 找到 LJBenchmark 仓库写入Shell 类
+function write_scanner_cls_to_benchmark_pod() {
+    static_dir=$benchmark_classes_path"/Temp"
+    if [ ! -d $static_dir ];
+    then
+        mkdir $static_dir
+    fi
+
+    lib_name=$1
+    if [ $2 ]
+    then
+        lib_name=$2
+    fi
+
+    # XC_benchmark_shell 前缀
+    xc_asterisk="*"
+    xc_prefix="//""\n""//  XC_benchmark_shell.m""\n""//  LJBenchmark""\n""//""\n""//  Created by Chengjie on 2019/11/28.""\n""//  Copyright © 2019 lianjia. All rights reserved.""\n""//  Authors : Mingtingfeng, Wangnan, Chengjie""\n""//""\n\n""#if __has_include(\"LJBenchmark.h\")""\n""\n""#if DEBUG""\n\n""#import \"LJBenchmark.h\"""\n\n""__attribute__((constructor(101))) void ljnh_benchmark_load_${1}() {""\n""\t""NSMutableDictionary *info = [NSMutableDictionary dictionary];""\n""\t""[[LJBenchmark getHookBusinessesInfo] addObject:info];""\n""\t""[info setObject:[NSMutableDictionary dictionary] forKey:kLJBenchmarkLogLibNameKey];""\n""\t""[info setObject:[NSMutableSet set] forKey:kLJBenchmarkLogLibClassesKey];""\n""\n""\t""NSMutableDictionary *libInfo = [info objectForKey:kLJBenchmarkLogLibNameKey];""\n""\t""[libInfo setObject:@\"${lib_name}\" forKey:@\"libname\"];""\n""\t""[libInfo setObject:@\"1.0.0\" forKey:@\"libversion\"];""\n""\t""\n""\t""NSDictionary *infoDictionary = [[NSBundle mainBundle] infoDictionary];""\n""\t""NSString *appName = [infoDictionary objectForKey:@\"CFBundleDisplayName\"];""\n""\t""NSString *appBuildVersion = [infoDictionary objectForKey:@\"CFBundleVersion\"];""\n""\t""[libInfo setObject:appName forKey:@\"appname\"];""\n""\t""[libInfo setObject:appBuildVersion forKey:@\"appversion\"];""\n""\n""\t""NSMutableSet<NSString *> *allClsSet = [info objectForKey:kLJBenchmarkLogLibClassesKey];""\n\n"
+
+    # XC_benchmark_shell 后缀
+    xc_middle="\t""for (NSString *obj in allClsSet) {""\n\t\t""LJBM_HOOK_CLASS(NSClassFromString(obj));""\n\t""}""\n\n"
+    xc_suffix="}\n\n""@interface ${1} : NSObject""\n\n""@end""\n\n""@implementation ${1}""\n\n""@end""\n\n""#endif""\n\n""#endif""\n\n"
+    echo $xc_prefix""$cls_list""$xc_middle""$xc_suffix > $static_dir"/""$1"".m"
+}
+
+# 执行pod 命令更新壳工程
+function execute_pod_command() {
+    echo $outputPrefix"LJBenchmark已经与对应业务关联，即将 install 接入项目中，接入成功将自动帮您打开项目"
+    cd $root_path
+    pod cache clean 'LJBenchmark' --all
+    pod install
+    xcodebuild clean -quiet
+}
+
+# 找到工作路径
+function find_and_open_workspace_path() {
+    xcworkspace_path=""
+    for file in `ls $root_path`
+    do
+        if [[ $file =~ ".xcworkspace" ]]
+        then
+            xcworkspace_path=$file
+        break
+        fi
+    done
+    echo ${outputPrefix}"链家，祝您工作愉快！"
+    cd $root_path
+    open ./$xcworkspace_path
+}
+
+# 耗时过程计算
+function get_execution_time() {
+    start=$1
+    end=$2
+    start_s=$(echo $start | cut -d '.' -f 1)
+    end_s=$(echo $end | cut -d '.' -f 1)
+    time=$(( ( 10#$end_s - 10#$start_s ) ))
+    echo "$time s"
+}
+
+# 执行脚本
+main $@

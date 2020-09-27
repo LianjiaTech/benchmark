@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>IDECodeSnippetCompletionPrefix</key>
+	<string>LJBM_MAKE_START</string>
+	<key>IDECodeSnippetCompletionScopes</key>
+	<array>
+		<string>All</string>
+	</array>
+	<key>IDECodeSnippetContents</key>
+	<string>#if __has_include("LJBenchmarkMacro.h")
+    LJBM_START(&lt;#__SESSION__#&gt;);
+#endif</string>
+	<key>IDECodeSnippetIdentifier</key>
+	<string>1FEF41F2-54B6-4132-A806-A2BC0936EE45</string>
+	<key>IDECodeSnippetLanguage</key>
+	<string>Xcode.SourceCodeLanguage.Generic</string>
+	<key>IDECodeSnippetSummary</key>
+	<string>LJBM_MAKE_START</string>
+	<key>IDECodeSnippetTitle</key>
+	<string>LJBM_MAKE_START</string>
+	<key>IDECodeSnippetUserSnippet</key>
+	<true/>
+	<key>IDECodeSnippetVersion</key>
+	<integer>0</integer>
+</dict>
+</plist>

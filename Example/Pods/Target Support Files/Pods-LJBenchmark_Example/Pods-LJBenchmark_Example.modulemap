@@ -1,0 +1,6 @@
+framework module Pods_LJBenchmark_Example {
+  umbrella header "Pods-LJBenchmark_Example-umbrella.h"
+
+  export *
+  module * { export * }
+}
