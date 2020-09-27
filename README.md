@@ -15,7 +15,7 @@ pod 'LJBenchmark'
 ```
 但是我们更加推荐使用脚本方式接入，
 下载github仓库路径下的
-[/LJBenchmark/LJBenchmark/Classes/Workspace/benchmark](http://git.lianjia.com/mobile_ios/LJBenchmark/blob/master/LJBenchmark/Classes/Workspace/benchmark) 
+[/LJBenchmark/LJBenchmark/Classes/Workspace/benchmark](https://github.com/LianjiaTech/benchmark/blob/master/LJBenchmark/Classes/Workspace/benchmark) 
 此文件为脚本文件。
 脚本拖入您的工作仓库，也就是Podfile文件同级目录，然后，cd 到该目录下，命令行执行：
 ```shell
@@ -57,7 +57,7 @@ sh benchmark --help
 
 ## 2.项目结构
 
-![snapshot](http://git.lianjia.com/mobile_ios/LJBenchmark/raw/master/Snapshots/project_mind.png)
+![snapshot](https://github.com/LianjiaTech/benchmark/raw/master/Snapshots/project_mind.png)
 
 ### 2.1 OC类设计
 
@@ -232,7 +232,7 @@ sh benchmark --help
 
 - **目录结构看LJBenchmark**：
 
-![snapshot](http://git.lianjia.com/mobile_ios/LJBenchmark/raw/master/Snapshots/project_dir.png)
+![snapshot](https://github.com/LianjiaTech/benchmark/raw/master/Snapshots/project_dir.png)
 
 用户的自定义配置和对数据的接收以及输出完全是在 **Development Pods** 下单独的
 **LJBenchmark** 项目下自我闭合的管理的，用户的所有使用过程中，不会存在着对业务代码的直接侵入。
@@ -249,7 +249,7 @@ sh benchmark --help
 
 -**clear**：自动清理业务监控配置的脚本
 
-上述脚本均以插件挂载在 [benchmark](http://git.lianjia.com/mobile_ios/LJBenchmark/blob/master/LJBenchmark/Classes/Workspace/benchmark) 脚本下作为operation被执行。
+上述脚本均以插件挂载在 [benchmark](https://github.com/LianjiaTech/benchmark/blob/master/LJBenchmark/Classes/Workspace/benchmark) 脚本下作为operation被执行。
 
 脚本的统一执行格式为
 
@@ -265,22 +265,22 @@ sh benchmark [operation] [source] [options]
 
 ## 3.使用示例
 
-- **为什么推荐使用脚本** [benchmark](http://git.lianjia.com/mobile_ios/LJBenchmark/blob/master/LJBenchmark/Classes/Workspace/benchmark) **接入？**
+- **为什么推荐使用脚本** [benchmark](https://github.com/LianjiaTech/benchmark/blob/master/LJBenchmark/Classes/Workspace/benchmark) **接入？**
 
 这时候脚本会自动帮你布置初始化环境，分析你的业务版本信息和所有的类信息，并加载到日志中。
-![snapshot](http://git.lianjia.com/mobile_ios/LJBenchmark/raw/master/Snapshots/auto_temp.png)
+![snapshot](https://github.com/LianjiaTech/benchmark/raw/master/Snapshots/auto_temp.png)
 这对后继深度的进行版本性能优化对比分析的场景可能是有用的。
 
 - **log打印日志查看分析**
 
 假设我们发现某处页面打开时候加载比较缓慢或者卡顿，这时候我们的工具就能派上用场了。
 下面是一个发现页面加载时长的场景的简化示例：
-![snapshot](http://git.lianjia.com/mobile_ios/LJBenchmark/raw/master/Snapshots/demo_before.png)
+![snapshot](https://github.com/LianjiaTech/benchmark/raw/master/Snapshots/demo_before.png)
 
 优化前我们发现 **- viewdidload** 该方法加载耗时比较严重。那么从调用栈的角度往上查找，会发现有取缓存数据的一个函数
 耗时比较多。我们很直观的就发现了问题的所在，即在主线程中读取缓存然后渲染视图，并不是一个很好的选择。
 改用异步线程读取缓存优化以后，实际真机体验取得了良好的效果。再用 `LJBenchmark`  观察页面加载数据:
-![snapshot](http://git.lianjia.com/mobile_ios/LJBenchmark/raw/master/Snapshots/demo_after.png)
+![snapshot](https://github.com/LianjiaTech/benchmark/raw/master/Snapshots/demo_after.png)
 
 不难看出，LJBenchmark对于函数耗时的分析，将有助于卡顿和延迟问题的快速定位和解决。
 
